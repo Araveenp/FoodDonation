@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food Donation Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+        }
+        h1 {
+            margin: 0;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+        }
+        .container {
+            width: 80%;
+            margin: auto;
+            overflow: hidden;
+            padding: 20px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        form {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin: 10px 0 5px;
+        }
+        input[type="text"],
+        input[type="submit"] {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0 20px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        input[type="submit"] {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+        #findFoodBtn {
+            background-color: #008CBA;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            display: block;
+            margin-top: 20px;
+            width: 100%;
+        }
+        #findFoodBtn:hover {
+            background-color: #005f6b;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Food Donation Map</h1>
+    </header>
+    <div class="container">
+        <h2>Add a Donation</h2>
+        <form method="POST" action="submit_donation.php" id="donationForm">
+            <label for="donor_name">Donor Name:</label>
+            <input type="text" id="donor_name" name="donor_name" required>
+
+            <label for="food">Food Type:</label>
+            <input type="text" id="food" name="food" required>
+
+            <label for="location">Location:</label>
+            <input type="text" id="location" name="location" required>
+
+            <input type="hidden" id="latitude" name="latitude">
+            <input type="hidden" id="longitude" name="longitude">
+
+            <input type="submit" value="Submit Donation">
+        </form>
+
+        <!-- Button to find available food -->
+        <button id="findFoodBtn">Find Available Food</button>
+
+        <div id="map"></div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Initialize the map
+        var map = L.map('map').setView([51.505, -0.09], 13); // Initial coordinates (London)
+
+        // Add OpenStreetMap tiles
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        // Marker for the selected location
+        var marker = L.marker([51.505, -0.09]).addTo(map)
+            .bindPopup('A donation can be made here!')
+            .openPopup();
+
+        // Function to get latitude and longitude from location input using Nominatim API
+        document.getElementById('location').addEventListener('blur', function() {
+            var location = this.value;
+            fetch(`https://nominatim.openstreetmap.org/search?q=${location}&format=json&limit=1`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.length > 0) {
+                        var lat = data[0].lat;
+                        var lon = data[0].lon;
+
+                        // Set latitude and longitude fields
+                        document.getElementById('latitude').value = lat;
+                        document.getElementById('longitude').value = lon;
+
+                        // Update marker on the map
+                        marker.setLatLng([lat, lon])
+                            .bindPopup(`${location}`)
+                            .openPopup();
+
+                        map.setView([lat, lon], 13);
+                    } else {
+                        alert("Location not found!");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching location:', error);
+                });
+        });
+
+        // Function to find food donations and display on the map
+        document.getElementById('findFoodBtn').addEventListener('click', function() {
+            fetch('get_donations.php')  // This PHP file will return donation data
+                .then(response => response.json())
+                .then(data => {
+                    if (data.length > 0) {
+                        data.forEach(donation => {
+                            var lat = donation.latitude;
+                            var lon = donation.longitude;
+                            var food = donation.food;
+                            var donor = donation.donor_name;
+                            var loc = donation.location;
+
+                            // Place markers on the map for each donation
+                            L.marker([lat, lon]).addTo(map)
+                                .bindPopup(`<b>${donor}</b><br>Food: ${food}<br>Location: ${loc}`)
+                                .openPopup();
+                        });
+                    } else {
+                        alert("No food donations available.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching donations:', error);
+                });
+        });
+    </script>
+</body>
+</html>
